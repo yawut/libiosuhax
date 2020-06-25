@@ -1,5 +1,6 @@
 add_library(libiosuhax
     ${CMAKE_CURRENT_SOURCE_DIR}/iosuhax.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/iosuhax_cfw.c
     ${CMAKE_CURRENT_SOURCE_DIR}/iosuhax_devoptab.c
     ${CMAKE_CURRENT_SOURCE_DIR}/iosuhax_disc_interface.c
 )

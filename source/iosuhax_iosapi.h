@@ -44,6 +44,13 @@ extern "C" {
 #define IOCTL_CHECK_IF_IOSUHAX      0x5B
 #define IOSUHAX_MAGIC_WORD          0x4E696365
 
+//MochaLite exclusive/ioctl100
+#define IPC_CUSTOM_LOG_STRING               0xFF
+#define IPC_CUSTOM_META_XML_SWAP_REQUIRED   0xFE
+#define IPC_CUSTOM_MEN_RPX_HOOK_COMPLETED   0xFD
+#define IPC_CUSTOM_LOAD_CUSTOM_RPX          0xFC
+#define IPC_CUSTOM_META_XML_READ            0xFB
+
 #ifdef __cplusplus
 }
 #endif
