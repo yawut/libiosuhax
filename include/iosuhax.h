@@ -30,34 +30,34 @@
 extern "C" {
 #endif
 
-#define IOS_ERROR_UNKNOWN_VALUE     0xFFFFFFD6
-#define IOS_ERROR_INVALID_ARG       0xFFFFFFE3
-#define IOS_ERROR_INVALID_SIZE      0xFFFFFFE9
-#define IOS_ERROR_UNKNOWN           0xFFFFFFF7
-#define IOS_ERROR_NOEXISTS          0xFFFFFFFA
+#ifdef __WUT__
+/* Modern case: wut headers */
+#include <coreinit/mutex.h>
+#include <coreinit/ios.h>
+#include <coreinit/filesystem.h>
 
-typedef struct
-{
-    uint32_t flag;
-    uint32_t permission;
-    uint32_t owner_id;
-    uint32_t group_id;
-	uint32_t size; // size in bytes
-	uint32_t physsize; // physical size on disk in bytes
-	uint32_t unk[3];
-	uint32_t id;
-	uint32_t ctime;
-	uint32_t mtime;
-	uint32_t unk2[0x0D];
-}fileStat_s;
+/* Hide behind IOSUHAX types */
+typedef FSStat IOSUHAX_FSA_Stat;
+#define IOSUHAX_FSA_STAT_IS_WUT
 
-typedef struct
-{
-    fileStat_s stat;
-	char name[0x100];
-}directoryEntry_s;
+typedef FSDirectoryEntry IOSUHAX_FSA_DirectoryEntry;
+#define IOSUHAX_FSA_DIRECTORYENTRY_IS_WUT
 
-#define DIR_ENTRY_IS_DIRECTORY      0x80000000
+#define OS_MUTEX_SIZE sizeof(OSMutex)
+#else
+/* Legacy case: dynamic_libs */
+#include <dynamic_libs/os_functions.h>
+#include <dynamic_libs/fs_defs.h>
+
+/* Hide behind IOSUHAX types. One day these may be changed to mirror the wut
+   types more closely. */
+typedef FSStat IOSUHAX_FSA_Stat;
+#define IOSUHAX_FSA_STAT_IS_DYNAMICLIBS
+
+typedef FSDirEntry IOSUHAX_FSA_DirectoryEntry;
+#define IOSUHAX_FSA_DIRECTORYENTRY_IS_DYNAMICLIBS
+
+#endif
 
 #define FSA_MOUNTFLAGS_BINDMOUNT (1 << 0)
 #define FSA_MOUNTFLAGS_GLOBAL (1 << 1)
@@ -82,7 +82,7 @@ int IOSUHAX_FSA_GetDeviceInfo(int fsaFd, const char* device_path, int type, uint
 
 int IOSUHAX_FSA_MakeDir(int fsaFd, const char* path, uint32_t flags);
 int IOSUHAX_FSA_OpenDir(int fsaFd, const char* path, int* outHandle);
-int IOSUHAX_FSA_ReadDir(int fsaFd, int handle, directoryEntry_s* out_data);
+int IOSUHAX_FSA_ReadDir(int fsaFd, int handle, IOSUHAX_FSA_DirectoryEntry* out_data);
 int IOSUHAX_FSA_RewindDir(int fsaFd, int dirHandle);
 int IOSUHAX_FSA_CloseDir(int fsaFd, int handle);
 int IOSUHAX_FSA_ChangeDir(int fsaFd, const char *path);
@@ -90,10 +90,10 @@ int IOSUHAX_FSA_ChangeDir(int fsaFd, const char *path);
 int IOSUHAX_FSA_OpenFile(int fsaFd, const char* path, const char* mode, int* outHandle);
 int IOSUHAX_FSA_ReadFile(int fsaFd, void* data, uint32_t size, uint32_t cnt, int fileHandle, uint32_t flags);
 int IOSUHAX_FSA_WriteFile(int fsaFd, const void* data, uint32_t size, uint32_t cnt, int fileHandle, uint32_t flags);
-int IOSUHAX_FSA_StatFile(int fsaFd, int fileHandle, fileStat_s* out_data);
+int IOSUHAX_FSA_StatFile(int fsaFd, int fileHandle, IOSUHAX_FSA_Stat* out_data);
 int IOSUHAX_FSA_CloseFile(int fsaFd, int fileHandle);
 int IOSUHAX_FSA_SetFilePos(int fsaFd, int fileHandle, uint32_t position);
-int IOSUHAX_FSA_GetStat(int fsaFd, const char *path, fileStat_s* out_data);
+int IOSUHAX_FSA_GetStat(int fsaFd, const char *path, IOSUHAX_FSA_Stat* out_data);
 int IOSUHAX_FSA_Remove(int fsaFd, const char *path);
 int IOSUHAX_FSA_ChangeMode(int fsaFd, const char* path, int mode);
 

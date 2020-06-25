@@ -23,7 +23,6 @@
  ***************************************************************************/
 #include <string.h>
 #include <malloc.h>
-#include "os_functions.h"
 #include "iosuhax.h"
 
 #define IOSUHAX_MAGIC_WORD          0x4E696365
@@ -381,7 +380,7 @@ int IOSUHAX_FSA_OpenDir(int fsaFd, const char* path, int* outHandle)
     return result_vec[0];
 }
 
-int IOSUHAX_FSA_ReadDir(int fsaFd, int handle, directoryEntry_s* out_data)
+int IOSUHAX_FSA_ReadDir(int fsaFd, int handle, IOSUHAX_FSA_DirectoryEntry* out_data)
 {
     if(iosuhaxHandle < 0)
         return iosuhaxHandle;
@@ -397,7 +396,7 @@ int IOSUHAX_FSA_ReadDir(int fsaFd, int handle, directoryEntry_s* out_data)
     io_buf[0] = fsaFd;
     io_buf[1] = handle;
 
-    int result_vec_size = 4 + sizeof(directoryEntry_s);
+    int result_vec_size = 4 + sizeof(*out_data);
     uint8_t *result_vec = (uint8_t*) memalign(0x20, result_vec_size);
     if(!result_vec)
     {
@@ -414,7 +413,7 @@ int IOSUHAX_FSA_ReadDir(int fsaFd, int handle, directoryEntry_s* out_data)
     }
 
     int result = *(int*)result_vec;
-    memcpy(out_data, result_vec + 4, sizeof(directoryEntry_s));
+    memcpy(out_data, result_vec + 4, sizeof(*out_data));
     free(io_buf);
     free(result_vec);
     return result;
@@ -620,7 +619,7 @@ int IOSUHAX_FSA_WriteFile(int fsaFd, const void* data, uint32_t size, uint32_t c
     return result;
 }
 
-int IOSUHAX_FSA_StatFile(int fsaFd, int fileHandle, fileStat_s* out_data)
+int IOSUHAX_FSA_StatFile(int fsaFd, int fileHandle, IOSUHAX_FSA_Stat* out_data)
 {
     if(iosuhaxHandle < 0)
         return iosuhaxHandle;
@@ -636,7 +635,7 @@ int IOSUHAX_FSA_StatFile(int fsaFd, int fileHandle, fileStat_s* out_data)
     io_buf[0] = fsaFd;
     io_buf[1] = fileHandle;
 
-    int out_buf_size = 4 + sizeof(fileStat_s);
+    int out_buf_size = 4 + sizeof(*out_data);
     uint32_t *out_buffer = (uint32_t*)memalign(0x20, out_buf_size);
     if(!out_buffer)
     {
@@ -653,7 +652,7 @@ int IOSUHAX_FSA_StatFile(int fsaFd, int fileHandle, fileStat_s* out_data)
     }
 
     int result = out_buffer[0];
-    memcpy(out_data, out_buffer + 1, sizeof(fileStat_s));
+    memcpy(out_data, out_buffer + 1, sizeof(*out_data));
 
     free(io_buf);
     free(out_buffer);
@@ -719,7 +718,7 @@ int IOSUHAX_FSA_SetFilePos(int fsaFd, int fileHandle, uint32_t position)
     return result;
 }
 
-int IOSUHAX_FSA_GetStat(int fsaFd, const char *path, fileStat_s* out_data)
+int IOSUHAX_FSA_GetStat(int fsaFd, const char *path, IOSUHAX_FSA_Stat* out_data)
 {
     if(iosuhaxHandle < 0)
         return iosuhaxHandle;
@@ -736,7 +735,7 @@ int IOSUHAX_FSA_GetStat(int fsaFd, const char *path, fileStat_s* out_data)
     io_buf[1] = sizeof(uint32_t) * input_cnt;
     strcpy(((char*)io_buf) + io_buf[1], path);
 
-    int out_buf_size = 4 + sizeof(fileStat_s);
+    int out_buf_size = 4 + sizeof(*out_data);
     uint32_t *out_buffer = (uint32_t*)memalign(0x20, out_buf_size);
     if(!out_buffer)
     {
@@ -753,7 +752,7 @@ int IOSUHAX_FSA_GetStat(int fsaFd, const char *path, fileStat_s* out_data)
     }
 
     int result = out_buffer[0];
-    memcpy(out_data, out_buffer + 1, sizeof(fileStat_s));
+    memcpy(out_data, out_buffer + 1, sizeof(*out_data));
 
     free(io_buf);
     free(out_buffer);

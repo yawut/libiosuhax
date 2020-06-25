@@ -31,7 +31,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/iosupport.h>
-#include "os_functions.h"
 #include "iosuhax.h"
 
 typedef struct _fs_dev_private_t {
@@ -160,7 +159,7 @@ static int fs_dev_open_r (struct _reent *r, void *fileStruct, const char *path, 
 
     if(result == 0)
     {
-        fileStat_s stats;
+        IOSUHAX_FSA_Stat stats;
         result = IOSUHAX_FSA_StatFile(dev->fsaFd, fd, &stats);
         if(result != 0) {
             IOSUHAX_FSA_CloseFile(dev->fsaFd, fd);
@@ -345,7 +344,7 @@ static int fs_dev_fstat_r (struct _reent *r, void *fd, struct stat *st)
     // Zero out the stat buffer
     memset(st, 0, sizeof(struct stat));
 
-    fileStat_s stats;
+    IOSUHAX_FSA_Stat stats;
     int result = IOSUHAX_FSA_StatFile(file->dev->fsaFd, (int)fd, &stats);
     if(result != 0) {
         r->_errno = result;
@@ -353,19 +352,33 @@ static int fs_dev_fstat_r (struct _reent *r, void *fd, struct stat *st)
         return -1;
     }
 
+#if defined(IOSUHAX_FSA_STAT_IS_WUT)
     st->st_mode = S_IFREG;
     st->st_size = stats.size;
     st->st_blocks = (stats.size + 511) >> 9;
     st->st_nlink = 1;
-
-    // Fill in the generic entry stats
-    st->st_dev = stats.id;
+    st->st_dev = stats.entryId;
+    st->st_uid = stats.owner;
+    st->st_gid = stats.group;
+    st->st_ino = stats.entryId;
+    st->st_atime = stats.modified;
+    st->st_ctime = stats.created;
+    st->st_mtime = stats.modified;
+#elif defined(IOSUHAX_FSA_STAT_IS_DYNAMICLIBS)
+    st->st_mode = S_IFREG;
+    st->st_size = stats.size;
+    st->st_blocks = (stats.size + 511) >> 9;
+    st->st_nlink = 1;
+    st->st_dev = stats.ent_id;
     st->st_uid = stats.owner_id;
     st->st_gid = stats.group_id;
-    st->st_ino = stats.id;
+    st->st_ino = stats.ent_id;
     st->st_atime = stats.mtime;
     st->st_ctime = stats.ctime;
     st->st_mtime = stats.mtime;
+#else
+    #error "Can't tell what FS headers are in use! Check iosuhax.h"
+#endif
     OSUnlockMutex(file->dev->pMutex);
     return 0;
 }
@@ -416,7 +429,7 @@ static int fs_dev_stat_r (struct _reent *r, const char *path, struct stat *st)
         return -1;
     }
 
-    fileStat_s stats;
+    IOSUHAX_FSA_Stat stats;
 
     int result = IOSUHAX_FSA_GetStat(dev->fsaFd, real_path, &stats);
 
@@ -428,19 +441,41 @@ static int fs_dev_stat_r (struct _reent *r, const char *path, struct stat *st)
         return -1;
     }
 
-    // mark root also as directory
-    st->st_mode = ((stats.flag & 0x80000000) || (strlen(dev->mount_path) + 1 == strlen(real_path)))? S_IFDIR : S_IFREG;
-    st->st_nlink = 1;
+#if defined(IOSUHAX_FSA_STAT_IS_WUT)
+    st->st_mode = (
+        (stats.flags & FS_STAT_DIRECTORY) ||
+        /* mark root also as directory */
+        (strlen(dev->mount_path) + 1 == strlen(real_path))
+    ) ? S_IFDIR : S_IFREG;
     st->st_size = stats.size;
     st->st_blocks = (stats.size + 511) >> 9;
-    // Fill in the generic entry stats
-    st->st_dev = stats.id;
+    st->st_nlink = 1;
+    st->st_dev = stats.entryId;
+    st->st_uid = stats.owner;
+    st->st_gid = stats.group;
+    st->st_ino = stats.entryId;
+    st->st_atime = stats.modified;
+    st->st_ctime = stats.created;
+    st->st_mtime = stats.modified;
+#elif defined(IOSUHAX_FSA_STAT_IS_DYNAMICLIBS)
+    st->st_mode = (
+        (stats.flag & FS_STAT_FLAG_IS_DIRECTORY) ||
+        /* mark root also as directory */
+        (strlen(dev->mount_path) + 1 == strlen(real_path))
+    ) ? S_IFDIR : S_IFREG;
+    st->st_size = stats.size;
+    st->st_blocks = (stats.size + 511) >> 9;
+    st->st_nlink = 1;
+    st->st_dev = stats.ent_id;
     st->st_uid = stats.owner_id;
     st->st_gid = stats.group_id;
-    st->st_ino = stats.id;
+    st->st_ino = stats.ent_id;
     st->st_atime = stats.mtime;
     st->st_ctime = stats.ctime;
     st->st_mtime = stats.mtime;
+#else
+    #error "Can't tell what FS headers are in use! Check iosuhax.h"
+#endif
 
     OSUnlockMutex(dev->pMutex);
 
@@ -775,7 +810,7 @@ static int fs_dev_dirnext_r (struct _reent *r, DIR_ITER *dirState, char *filenam
 
     OSLockMutex(dirIter->dev->pMutex);
 
-    directoryEntry_s * dir_entry = malloc(sizeof(directoryEntry_s));
+    IOSUHAX_FSA_DirectoryEntry * dir_entry = malloc(sizeof(IOSUHAX_FSA_DirectoryEntry));
 
     int result = IOSUHAX_FSA_ReadDir(dirIter->dev->fsaFd, dirIter->dirHandle, dir_entry);
     if(result < 0)
@@ -792,17 +827,33 @@ static int fs_dev_dirnext_r (struct _reent *r, DIR_ITER *dirState, char *filenam
     if(st)
     {
         memset(st, 0, sizeof(struct stat));
-        st->st_mode = (dir_entry->stat.flag & 0x80000000) ? S_IFDIR : S_IFREG;
+#if defined(IOSUHAX_FSA_DIRECTORYENTRY_IS_WUT)
+        st->st_mode = (dir_entry->info.flags & FS_STAT_DIRECTORY) ? S_IFDIR : S_IFREG;
+        st->st_nlink = 1;
+        st->st_size = dir_entry->info.size;
+        st->st_blocks = (dir_entry->info.size + 511) >> 9;
+        st->st_dev = dir_entry->info.entryId;
+        st->st_uid = dir_entry->info.owner;
+        st->st_gid = dir_entry->info.group;
+        st->st_ino = dir_entry->info.entryId;
+        st->st_atime = dir_entry->info.modified;
+        st->st_ctime = dir_entry->info.created;
+        st->st_mtime = dir_entry->info.modified;
+#elif defined(IOSUHAX_FSA_DIRECTORYENTRY_IS_DYNAMICLIBS)
+        st->st_mode = (dir_entry->stat.flag & FS_STAT_FLAG_IS_DIRECTORY) ? S_IFDIR : S_IFREG;
         st->st_nlink = 1;
         st->st_size = dir_entry->stat.size;
         st->st_blocks = (dir_entry->stat.size + 511) >> 9;
-        st->st_dev = dir_entry->stat.id;
+        st->st_dev = dir_entry->stat.ent_id;
         st->st_uid = dir_entry->stat.owner_id;
         st->st_gid = dir_entry->stat.group_id;
-        st->st_ino = dir_entry->stat.id;
+        st->st_ino = dir_entry->stat.ent_id;
         st->st_atime = dir_entry->stat.mtime;
         st->st_ctime = dir_entry->stat.ctime;
         st->st_mtime = dir_entry->stat.mtime;
+#else
+        #error "Can't tell what FS headers are in use! Check iosuhax.h"
+#endif
     }
 
     free(dir_entry);
