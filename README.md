@@ -46,7 +46,7 @@ Make you to have [wut](https://github.com/devkitPro/wut/) installed and use the 
 ```
 make install
 ```
-This installs to `$DEVKITPRO/wut`, so the includes should Just Work, and you can add `-liosuhax` to your build flags where appropriate.
+This installs to `$DEVKITPRO/wut/usr`.
 
 ## Using (dynamic_libs - submodule)
 For legacy dynamic_libs homebrew, like [this one](https://github.com/dimok789/hello_world), you should be able to follow the same steps as [wut+make (devkitPro style)](#wut+make (devkitPro-style)). Make sure you're using an updated version of dynamic_libs, like [Maschell's](https://github.com/Maschell/dynamic_libs), or you'll get errors about missing functions (like `IOS_Open`). The dynamic_libs compatibility of this library is not well tested, and not all supported CFWs can even run such homebrew - so consider moving to wut as a matter of priority.
